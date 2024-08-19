@@ -1,6 +1,7 @@
 """Platform for sensor integration."""
 from __future__ import annotations
 from datetime import timedelta
+from dateutil import parser
 import logging
 import voluptuous as vol
 
@@ -170,24 +171,28 @@ class NationalrailSensor(SensorEntity):
         
         self.station_name=result["locationName"]
         self.destination_name=result["filterLocationName"]
+        self.service_data = result.get("trainServices")[0]
 
-        self._state = result.get("trainServices")[0]
+        next_train_time = self.service_data["eta"] if "eta" in self.service_data.keys() else self.service_data["sta"]
+
+        self._state = parser.parse(next_train_time).strftime("%H:%M")
         self.last_data = result
 
     @property
     def extra_state_attributes(self):
         data = self.last_data
+        service_data=self.service_data
         attributes = {}
-        attributes["last_refresh"] = data.get_last_update()
+        attributes["last_refresh"] = data.get("generatedAt")
 
         if data.is_empty():
             return attributes
 
-        attributes["message"] = data.message()
-        attributes["station_name"] = data.get_station_name()
-        attributes["destination_name"] = data.get_destination_name(self.destination)
-        attributes["service"] = data.get_service_details(self.destination)
-        attributes["calling_points"] = data.get_calling_points(self.destination)
+        attributes["message"] = data.get("nrccMessages", "")
+        attributes["station_name"] = data["locationName"]
+        attributes["destination_name"] = data["filterLocationName"]
+        attributes["service"] = service_data
+        attributes["calling_points"] = [callpoint.locationName for callpoint in service_data.get("subsequentCallingPoints", []) ]
         attributes["offset"] = self.time_offset
 
         attributes["station_code"] = self.station

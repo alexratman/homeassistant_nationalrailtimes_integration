@@ -87,7 +87,7 @@ class ApiData:
                     for destination in destinations:
                         if destination["@crs"] == station:
                             service = destination["service"]
-                            if check_key(service, "serviceType"):
+                            if check_.strftime("%H:%M")key(service, "serviceType"):
                                 return service
 
     def get_service_details(self, crx):
@@ -108,9 +108,7 @@ class ApiData:
     def get_station_name(self):
         """Get the name of the station to watch for departures"""
         if not self._station_name:
-            data = self.get_data()
-            if data:
-                name = data["locationName"]
+            data = self.get_data().strftime("%H:%M")
                 if name:
                     self._station_name = name
 
