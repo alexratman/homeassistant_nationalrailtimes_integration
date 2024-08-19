@@ -1,4 +1,4 @@
-# National Rail Departure Times Integration Component by [@crismc](https://github.com/crismc)
+# National Rail Departure Times Integration Component by [@crismc](https://github.com/crismc) and [@miawgogo](https://github.com/miawgogo)
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=nationalrailtimes)
 
 <a href="https://www.buymeacoffee.com/jedimeat" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/white_img.png" alt="Buy Me A Coffee" style="height: auto !important;width: auto !important;" ></a>
@@ -7,12 +7,12 @@
 [![release][release-badge]][release-url]
 ![downloads][downloads-badge]
 
-A custom Home Assistant component to show next available trains to specific stops through the National Rail Darwin SOAP API.
+A custom Home Assistant component to show next available trains to specific stops through the National Rail Darwin JSON API, this was mainly done as the RDG(Rail Delivery Group) replaced the old national rail enquiries api signup with a new "marketplace" and replaced the old SOAP api with a new JSON api(that is poorly documented).
 For better visuals, to be used with the Home Assistant custom card homeassistant_nationalrailtimes_lovelace (https://github.com/crismc/homeassistant_nationalrailtimes_lovelace)
 
 Creates a sensor for each station/destination, reporting arrival/destination times, and relevant calling stops along the way coupled with any station messages such as delayed or cancelled services.
 
-Based on the HA-LondonTfl component by [@morosanmihail] (https://github.com/morosanmihail/HA-LondonTfL), although the internals have taken a side step to incorporate the Darwin SOAP API.
+Based on the HA-LondonTfl component by [@morosanmihail] (https://github.com/morosanmihail/HA-LondonTfL), and crismc's Darwin SOAP API intergration.
 
 This can be used for any/all stations associated to the National Rail service, and returns service information associated to the GetNextDeparturesWithDetailsRequest.
 For information on the SOAP API, visit [Live Departure Boards Web Service (LDBWS / OpenLDBWS)](https://lite.realtime.nationalrail.co.uk/openldbws/)
