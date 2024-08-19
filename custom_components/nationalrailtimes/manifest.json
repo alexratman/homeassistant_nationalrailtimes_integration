@@ -2,16 +2,15 @@
   "domain": "nationalrailtimes",
   "name": "National Rail Departure Times",
   "config_flow": true,
-  "documentation": "https://www.home-assistant.io/integrations/nationalrailtimes",
-  "requirements": ["xmltodict==0.13.0"],
+  "documentation": "https://github.com/miawgogo/homeassistant_nationalrailtimes_integration",
   "ssdp": [],
   "zeroconf": [],
   "homekit": {},
   "dependencies": [],
   "codeowners": [
-    "@crismc"
+    "@miawgogo"
   ],
   "iot_class": "cloud_polling",
-  "version": "1.0.0",
-  "issue_tracker": "https://github.com/crismc/homeassistant_nationalrailtimes_integration/issues"
+  "version": "1.0.1",
+  "issue_tracker": "https://github.com/miawgogo/homeassistant_nationalrailtimes_integration/issues"
 }
