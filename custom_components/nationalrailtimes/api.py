@@ -1,20 +1,18 @@
 """API wrapper for generating the XML envelope and fetching data from the Darwin API"""
+
 import aiohttp
 import async_timeout
-
-from .apidata import ApiData
 
 
 class Api:
     """API wrapper for generating the XML envelope and fetching data from the Darwin API"""
 
-    def __init__(self, api_key, station, ):
+    def __init__(self, api_key, station, destination):
         self.api_key = api_key
         self.time_offset = 0
         self.time_window = 120
         self.station = station
         self.destination = destination
-        self.data = ApiData()
 
     def set_config(self, key, val):
         """Set config item, such as time_offset and time_window"""
@@ -43,10 +41,10 @@ class Api:
         If no request is running, generate SOAP Envelope and submit request to Darwin API.
         Otherwise, wait until the existing one is complete, and return that value.
         """
-        url=f"https://api1.raildata.org.uk/1010-live-departure-board-dep/LDBWS/api/20220120/GetDepBoardWithDetails/{self.station}?numRows=5"
+        url = f"https://api1.raildata.org.uk/1010-live-departure-board-dep/LDBWS/api/20220120/GetDepBoardWithDetails/{self.station}?numRows=5"
         return await self.request(self.url, aiohttp.get)
 
-    async def fetch(self, session:aiohttp.ClientSession, url, params: dict):
+    async def fetch(self, session: aiohttp.ClientSession, url, params: dict):
         """Fetch data from the Darwin API"""
         try:
             with async_timeout.timeout(15):
@@ -55,9 +53,9 @@ class Api:
                     headers={
                         "Content-Type": "text/xml",
                         "charset": "utf-8",
-                        "x-apikey": self.api_key
+                        "x-apikey": self.api_key,
                     },
-                    params=params
+                    params=params,
                 ) as response:
                     result = await response.json()
                     return result
@@ -66,9 +64,9 @@ class Api:
 
     async def request(self, url):
         """Prepare core request"""
-        data={}
-        if self.destination!=None:
-            data["filterCrs"]=self.destination
-            data["filterType"]="to"
+        data = {}
+        if self.destination != None:
+            data["filterCrs"] = self.destination
+            data["filterType"] = "to"
         async with aiohttp.ClientSession() as session:
             return await self.fetch(session, url, data)

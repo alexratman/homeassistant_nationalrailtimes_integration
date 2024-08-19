@@ -14,6 +14,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
+from .api import Api
 from .const import (
     CONF_API_KEY,
     CONF_ARRIVAL,
@@ -23,8 +24,6 @@ from .const import (
     DEFAULT_ICON,
     DEFAULT_NAME,
     DOMAIN,
-    NATIONAL_RAIL_URL,
-    SOAP_ACTION_URL,
     CONF_REFRESH_SECONDS,
 )
 
