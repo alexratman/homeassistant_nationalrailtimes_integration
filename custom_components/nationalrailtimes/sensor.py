@@ -13,7 +13,6 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .api import Api
 from .const import (
     CONF_API_KEY,
     CONF_ARRIVAL,
