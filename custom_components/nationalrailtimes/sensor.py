@@ -200,8 +200,10 @@ class NationalrailSensor(SensorEntity):
         attributes["destination_name"] = data["filterLocationName"]
         attributes["service"] = service_dict
         attributes["calling_points"] = [
-            callpoint.get("callingPoint", {}).get("locationName", "")
-            for callpoint in service_data.get("subsequentCallingPoints", [])
+            callpoint.get("locationName", "")
+            for callpoint in service_data.get("subsequentCallingPoints", [{}])[0].get(
+                "callingPoint", []
+            )
         ]
         attributes["offset"] = self.time_offset
 
