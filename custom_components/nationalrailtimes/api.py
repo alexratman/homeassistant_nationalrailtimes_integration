@@ -42,7 +42,7 @@ class Api:
         Otherwise, wait until the existing one is complete, and return that value.
         """
         url = f"https://api1.raildata.org.uk/1010-live-departure-board-dep/LDBWS/api/20220120/GetDepBoardWithDetails/{self.station}?numRows=5"
-        return await self.request(self.url, aiohttp.get)
+        return await self.request(url)
 
     async def fetch(self, session: aiohttp.ClientSession, url, params: dict):
         """Fetch data from the Darwin API"""
