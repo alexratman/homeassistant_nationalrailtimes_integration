@@ -19,14 +19,14 @@ _LOGGER = logging.getLogger(__name__)
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required("api_key"): str,
-        vol.Required("arrival"): vol.In(STATIONS),
+        vol.Required("arrival"): str,
         vol.Required("time_offset", default=str(DEFAULT_TIME_OFFSET)): str,
     }
 )
 
 STEP_DESTINATION_DATA_SCHEMA = vol.Schema(
     {
-        vol.Required("destination"): vol.In(STATIONS),
+        vol.Required("destination"): str,
         vol.Optional("add_another", default=False): cv.boolean,
     }
 )
