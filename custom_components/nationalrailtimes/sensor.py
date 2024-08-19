@@ -187,6 +187,8 @@ class NationalrailSensor(SensorEntity):
     def extra_state_attributes(self):
         data = self.last_data
         service_data = self.service_data
+        service_dict = service_data.copy()
+        service_dict.pop("subsequentCallingPoints")
         attributes = {}
         attributes["last_refresh"] = data.get("generatedAt", "")
 
@@ -196,10 +198,10 @@ class NationalrailSensor(SensorEntity):
         attributes["message"] = data.get("nrccMessages", "")
         attributes["station_name"] = data["locationName"]
         attributes["destination_name"] = data["filterLocationName"]
-        attributes["service"] = service_data
+        attributes["service"] = service_dict
         attributes["calling_points"] = [
             callpoint.get("callingPoint", {}).get("locationName", "")
-            for callpoint in service_data.get("callingPoint", [])
+            for callpoint in service_data.get("subsequentCallingPoints", [])
         ]
         attributes["offset"] = self.time_offset
 
