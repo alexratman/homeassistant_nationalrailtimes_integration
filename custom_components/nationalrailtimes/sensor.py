@@ -188,7 +188,7 @@ class NationalrailSensor(SensorEntity):
         data = self.last_data
         service_data = self.service_data
         attributes = {}
-        attributes["last_refresh"] = data.get("generatedAt")
+        attributes["last_refresh"] = data.get("generatedAt", "")
 
         if len(data) == 0:
             return attributes
@@ -198,7 +198,7 @@ class NationalrailSensor(SensorEntity):
         attributes["destination_name"] = data["filterLocationName"]
         attributes["service"] = service_data
         attributes["calling_points"] = [
-            callpoint.locationName
+            callpoint.get("locationName")
             for callpoint in service_data.get("subsequentCallingPoints", [])
         ]
         attributes["offset"] = self.time_offset
