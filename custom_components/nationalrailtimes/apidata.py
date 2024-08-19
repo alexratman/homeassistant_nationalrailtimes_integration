@@ -1,4 +1,5 @@
 """Data handler for the response from the Darwin API"""
+
 from datetime import datetime, timedelta
 from dateutil import parser
 import xmltodict
@@ -87,7 +88,7 @@ class ApiData:
                     for destination in destinations:
                         if destination["@crs"] == station:
                             service = destination["service"]
-                            if check_.strftime("%H:%M")key(service, "serviceType"):
+                            if check_key(service, "serviceType"):
                                 return service
 
     def get_service_details(self, crx):
@@ -102,13 +103,21 @@ class ApiData:
         """Get the stations the service stops at on route to the destination"""
         data = self.get_destination_data(crx)
         if data:
-            callingPoints = data["subsequentCallingPoints"]["callingPointList"]["callingPoint"]
-            return callingPoints if type(callingPoints) in [list, tuple] else [callingPoints] 
+            callingPoints = data["subsequentCallingPoints"]["callingPointList"][
+                "callingPoint"
+            ]
+            return (
+                callingPoints
+                if type(callingPoints) in [list, tuple]
+                else [callingPoints]
+            )
 
     def get_station_name(self):
         """Get the name of the station to watch for departures"""
         if not self._station_name:
-            data = self.get_data().strftime("%H:%M")
+            data = self.get_data()
+            if data:
+                name = data["locationName"]
                 if name:
                     self._station_name = name
 

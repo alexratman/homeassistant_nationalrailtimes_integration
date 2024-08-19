@@ -176,7 +176,7 @@ class NationalrailSensor(SensorEntity):
 
         next_train_time = (
             self.service_data["etd"]
-            if "etd" in self.service_data.keys()
+            if self.service_data.get("etd", "On Time") != "On time"
             else self.service_data["std"]
         )
 
