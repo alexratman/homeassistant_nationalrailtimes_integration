@@ -1,4 +1,5 @@
 """Platform for sensor integration."""
+
 from __future__ import annotations
 from datetime import timedelta
 from dateutil import parser
@@ -167,12 +168,16 @@ class NationalrailSensor(SensorEntity):
             _LOGGER.warning("Failed to interpret received %s", "XML", exc_info=1)
             self._state = "Cannot interpret XML for this service from National Rail"
             return
-        
-        self.station_name=result["locationName"]
-        self.destination_name=result["filterLocationName"]
+
+        self.station_name = result["locationName"]
+        self.destination_name = result["filterLocationName"]
         self.service_data = result.get("trainServices")[0]
 
-        next_train_time = self.service_data["eta"] if "eta" in self.service_data.keys() else self.service_data["sta"]
+        next_train_time = (
+            self.service_data["eta"]
+            if "eta" in self.service_data.keys()
+            else self.service_data["sta"]
+        )
 
         self._state = parser.parse(next_train_time).strftime("%H:%M")
         self.last_data = result
@@ -180,7 +185,7 @@ class NationalrailSensor(SensorEntity):
     @property
     def extra_state_attributes(self):
         data = self.last_data
-        service_data=self.service_data
+        service_data = self.service_data
         attributes = {}
         attributes["last_refresh"] = data.get("generatedAt")
 
@@ -191,7 +196,10 @@ class NationalrailSensor(SensorEntity):
         attributes["station_name"] = data["locationName"]
         attributes["destination_name"] = data["filterLocationName"]
         attributes["service"] = service_data
-        attributes["calling_points"] = [callpoint.locationName for callpoint in service_data.get("subsequentCallingPoints", []) ]
+        attributes["calling_points"] = [
+            callpoint.locationName
+            for callpoint in service_data.get("subsequentCallingPoints", [])
+        ]
         attributes["offset"] = self.time_offset
 
         attributes["station_code"] = self.station
