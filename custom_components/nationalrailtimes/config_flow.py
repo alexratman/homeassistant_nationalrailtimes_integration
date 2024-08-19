@@ -1,4 +1,5 @@
 """Config flow for National Rail Departure Times integration."""
+
 from __future__ import annotations
 
 import logging
@@ -86,7 +87,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # If user ticked the box show this form again so they can add an additional station.
             if user_input.get("add_another", False):
                 return await self.async_step_destination()
+        dests = ", ".join(self.data_config["destination"])
+        if dests != "":
+            dests = f" - {dests}"
 
         return self.async_create_entry(
-            title="National Rail Departure Times", data=self.data_config
+            title=f"National Rail Departure Times - {self.data_config["arrival"]}{dests}",
+            data=self.data_config,
         )

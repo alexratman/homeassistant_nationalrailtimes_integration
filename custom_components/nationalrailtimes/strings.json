@@ -6,7 +6,7 @@
         "title": "Local Station",
         "data": {
           "api_key": "API Key",
-          "arrival": "Arrival Station",
+          "arrival": "Departure Station",
           "destination": "Destination Station",
           "time_offset": "Walking Time To Station (offset arrival time - minutes)",
           "time_window": "Time Window"
