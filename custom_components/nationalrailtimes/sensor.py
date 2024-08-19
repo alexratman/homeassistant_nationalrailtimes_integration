@@ -124,6 +124,8 @@ class NationalrailSensor(SensorEntity):
         self.api = Api(api_key, station, destination)
         self.api.set_config(CONF_TIME_OFFSET, time_offset)
         self.api.set_config(CONF_TIME_WINDOW, time_window)
+        self.last_data = {}
+        self.service_data = {}
 
     @property
     def unique_id(self):
