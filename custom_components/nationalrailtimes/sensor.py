@@ -175,9 +175,9 @@ class NationalrailSensor(SensorEntity):
         self.service_data = result.get("trainServices")[0]
 
         next_train_time = (
-            self.service_data["eta"]
-            if "eta" in self.service_data.keys()
-            else self.service_data["sta"]
+            self.service_data["etd"]
+            if "etd" in self.service_data.keys()
+            else self.service_data["std"]
         )
 
         self._state = parser.parse(next_train_time).strftime("%H:%M")
