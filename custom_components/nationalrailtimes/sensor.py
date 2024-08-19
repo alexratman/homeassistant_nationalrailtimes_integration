@@ -190,7 +190,7 @@ class NationalrailSensor(SensorEntity):
         attributes = {}
         attributes["last_refresh"] = data.get("generatedAt")
 
-        if data.is_empty():
+        if len(data) == 0:
             return attributes
 
         attributes["message"] = data.get("nrccMessages", "")
