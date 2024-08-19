@@ -118,10 +118,10 @@ class NationalrailSensor(SensorEntity):
         self.destination = destination
         self.station = station
         self._state = None
+        self.station_name = station
+        self.destination_name = destination
 
-        self.api = Api(
-            api_key, station, destination, NATIONAL_RAIL_URL, SOAP_ACTION_URL
-        )
+        self.api = Api(api_key, station, destination)
         self.api.set_config(CONF_TIME_OFFSET, time_offset)
         self.api.set_config(CONF_TIME_WINDOW, time_window)
 
@@ -131,16 +131,7 @@ class NationalrailSensor(SensorEntity):
 
     @property
     def name(self) -> str:
-        station_name = self.station
-        destination_name = self.destination
-
-        if self.station in STATIONS:
-            station_name = STATIONS[self.station]
-
-        if self.destination in STATIONS:
-            destination_name = STATIONS[self.destination]
-
-        name = f"Trains {station_name} to {destination_name}"
+        name = f"Trains {self.station_name} to {self.destination_name}"
         if int(self.time_offset):
             name = name + " (" + self.time_offset + "m walk)"
         return name
@@ -159,7 +150,6 @@ class NationalrailSensor(SensorEntity):
         """Fetch new state data for the sensor.
         This is the only method that should fetch new data for Home Assistant.
         """
-        data = self.api.data
 
         try:
             result = await self.api.api_request()
@@ -177,12 +167,16 @@ class NationalrailSensor(SensorEntity):
             _LOGGER.warning("Failed to interpret received %s", "XML", exc_info=1)
             self._state = "Cannot interpret XML for this service from National Rail"
             return
+        
+        self.station_name=result["locationName"]
+        self.destination_name=result["filterLocationName"]
 
-        self._state = data.get_state(self.destination)
+        self._state = result.get("trainServices")[0]
+        self.last_data = result
 
     @property
     def extra_state_attributes(self):
-        data = self.api.data
+        data = self.last_data
         attributes = {}
         attributes["last_refresh"] = data.get_last_update()
 

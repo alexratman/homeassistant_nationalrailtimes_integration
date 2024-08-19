@@ -8,9 +8,6 @@ DEFAULT_TIME_OFFSET = 0
 DEFAULT_TIME_WINDOW = 120
 
 NATIONAL_RAIL_URL = "https://lite.realtime.nationalrail.co.uk/OpenLDBWS/ldb9.asmx"
-SOAP_ACTION_URL = (
-    "http://thalesgroup.com/RTTI/2015-05-14/ldb/GetNextDeparturesWithDetails"
-)
 
 CONF_API_KEY = "api_key"
 CONF_ARRIVAL = "arrival"
