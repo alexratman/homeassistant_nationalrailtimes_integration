@@ -199,6 +199,7 @@ class NationalrailSensor(SensorEntity):
         attributes["station_name"] = data["locationName"]
         attributes["destination_name"] = data["filterLocationName"]
         attributes["service"] = service_dict
+        attributes["services"] = data["trainServices"][1:]
         attributes["calling_points"] = [
             callpoint.get("locationName", "")
             for callpoint in service_data.get("subsequentCallingPoints", [{}])[0].get(
