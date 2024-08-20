@@ -11,6 +11,6 @@
     "@miawgogo"
   ],
   "iot_class": "cloud_polling",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "issue_tracker": "https://github.com/miawgogo/homeassistant_nationalrailtimes_integration/issues"
 }
