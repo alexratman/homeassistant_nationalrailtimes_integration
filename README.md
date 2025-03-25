@@ -1,5 +1,10 @@
-# National Rail Departure Times Integration Component by [@crismc](https://github.com/crismc) and [@miawgogo](https://github.com/miawgogo)
-[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=nationalrailtimes)
+# National Rail Departure Times Integration Component by [@crismc](https://github.com/crismc). 
+## Updated by [@miawgogo](https://github.com/miawgogo) for new Darwin JSON API. 
+### API and Card Updates by [@alexratman](https://github.com/alexratman)
+- Enhanced sensor logic to handle updated Darwin JSON API structure.
+- Aligned `st` and `et` in calling points for improved compatibility with the new Lovelace card.
+- Fixed issues with edge-case scenarios (e.g., delayed services, arrival/departure times).
+
 
 <a href="https://www.buymeacoffee.com/jedimeat" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/white_img.png" alt="Buy Me A Coffee" style="height: auto !important;width: auto !important;" ></a>
 
@@ -21,76 +26,14 @@ For information on the SOAP API, visit [Live Departure Boards Web Service (LDBWS
 
 ![Screenshot3](screenshot3.png)
 
-## Requirements
-As this component intracts with the National Rail Darwin Feed, this requires an API Key to access the LDB Webservice (PV) SOAP API:
-https://www.nationalrail.co.uk/100296.aspx
-
-Simply go to the above link and choose [Register Here](http://realtime.nationalrail.co.uk/OpenLDBWSRegistration/Registration) next to LDB Webservice (PV)
-
 ## Options
 
 | Name                 | Type    | Requirement  | Description                                                                                       | Default |
 | ---------------------| ------- | ------------ | --------------------------------------------------------------------------------------------------|---------|
-| api_key              | string  | **Required** | National Rail Darwin Feed API Key                                                                 | `none`  |
+| api_key              | string  | **Required** | Raildata.org.uk api key for "Live Departures Board With Detai"                                    | `none`  |
 | arrival              | string  | **Required** | 3 Letter CRX station code of your local station                                                   | `none`  |
 | destination          | string  | **Required** | 3 Letter CRX station code of your target destination station                                      | `none`  |
 | time_offset          | string  | **Required** | An offset in minutes against the current time to provide the station board for your local station | `none`  |
-
-
-
-## Installing via HACS
-The easiest way to install this integration component is to install via HACS:
-1) Simply go to HACS in your Home Assistant
-2) Select Integrations
-3) In the top right of the screen, select the 3 dots and choose 'Custom repositories'
-4) For the repository field enter 'https://github.com/crismc/homeassistant_nationalrailtimes_integration'
-5) Choose 'Integration' as the category
-6) Add
-7) Restart your HomeAssistant
-8) Add Integration or Explore & Download Repositories (depending on your version of Home Assistant)
-9) Search for 'National Rail Departure Times'
-9) Enjoy
-
-## Installing the component from source
-Simply clone the repository, and manually drop the custom_components/nationalrailtimes directory it into your custom_components folder, and restart your Home Assistant configuration.
-
-```
-git clone git@github.com:crismc/homeassistant_nationalrailtimes_integration.git
-cd homeassistant_nationalrailtimes_integration
-cp -r custom_components/nationalrailtimes /your/homeassistant/conf/custom_components
-```
-
-### Setup
-![Screenshot1](screenshot1.png)
-
-You can add integration via the Integrations menu by searching for `National Rail Departure Times`.
-It will ask for an API Key, provide a list of stations to set as your local arrival station, and allow you to set the time offset.
-
-![Screenshot2](screenshot2.png)
-
-Next, it will allow you to add your destination station.
-By selecting "Add Another", you can add more destination stations.
-
-Each destination will be created as its own sensor.
-
-Sensor name will change to the name of the local and destination station.
-
-### Alternate setup
-
-Alternatively, you can set it up manually in your `configuration.yaml`.
-
-If configuring this directly within `configuration.yaml`, you will also need to know your stations 3 letter CRX codes. These can be found [here](https://www.nationalrail.co.uk/stations_destinations/48541.aspx)
-
-Demo configuration:
-
-```
-sensor:
-  - platform: nationalrailtimes
-    api_key: 1234abcd-1a2b3c-1a2b-9876-123abc456def
-    arrival: ABW
-    destination: CHX
-    time_offset: 20
-```
 
 <!-- Badges -->
 [license-shield]: https://img.shields.io/github/license/custom-cards/boilerplate-card.svg?style=for-the-badge
