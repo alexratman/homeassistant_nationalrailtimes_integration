@@ -1,163 +1,134 @@
 """Data handler for the response from the Darwin API"""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from dateutil import parser
-import xmltodict
-import re
+import logging
 
+_LOGGER = logging.getLogger(__name__)
 
 def check_key(element, *keys):
     """
-    Check if *keys (nested) exists in `element` (dict).
-    """
-    if not isinstance(element, dict):
-        raise AttributeError("keys_exists() expects dict as first argument.")
-    if len(keys) == 0:
-        raise AttributeError("keys_exists() expects at least two arguments, one given.")
+    Check if a sequence of nested keys exists in a dictionary.
 
-    _element = element
-    for key in keys:
-        try:
-            _element = _element[key]
-        except KeyError:
-            return False
-    return True
+    Args:
+        element (dict): The dictionary to check.
+        *keys: Sequence of keys to validate.
+
+    Returns:
+        bool: True if all keys exist, False otherwise.
+    """
+    try:
+        for key in keys:
+            element = element[key]
+        return True
+    except (KeyError, TypeError):
+        return False
 
 
 class ApiData:
     """Data handler class for the response from the Darwin API"""
 
     def __init__(self):
-        self.raw_result = ""
+        self.raw_result = {}
         self._last_update = None
-        self._api_xml = []
         self._station_name = ""
         self._refresh_interval = 2
 
-    def populate(self, xml_data):
-        """Hydrate the data entity with the XML API response"""
-        self.raw_result = xml_data
-        self._api_xml = []
+    def populate(self, json_data):
+        """Hydrate the data entity with the JSON API response"""
+        self.raw_result = json_data
         self._last_update = datetime.now()
-
-    # def is_data_stale(self):
-    #     """Check if the data hydration is stale and requires refreshing"""
-    #     if len(self.raw_result) > 0:
-    #         now = datetime.now()
-    #         stale_time = self._last_update + timedelta(minutes=self._refresh_interval)
-
-    #         if stale_time < now:
-    #             return False
-
-    #     return True
+        _LOGGER.debug("Data successfully populated.")
 
     def get_data(self):
-        """Parse the XML raw data and convert into a usable dictionary"""
-        if self.raw_result:
-            if not self._api_xml:
-                formatted = re.sub(r"lt\d*\:", "", self.raw_result)
-                data = xmltodict.parse(formatted)
-                if data and check_key(
-                    data,
-                    "soap:Envelope",
-                    "soap:Body",
-                    "GetNextDeparturesWithDetailsResponse",
-                    "DeparturesBoard",
-                ):
-                    self._api_xml = data["soap:Envelope"]["soap:Body"][
-                        "GetNextDeparturesWithDetailsResponse"
-                    ]["DeparturesBoard"]
-            return self._api_xml
+        """Retrieve the raw JSON data."""
+        if not self.raw_result:
+            _LOGGER.warning("No data available in raw_result.")
+            return {}
+        return self.raw_result
 
     def is_empty(self):
-        """Check if the entity is empty"""
-        return len(self._api_xml) == 0
+        """Check if the raw result is empty."""
+        return not bool(self.raw_result)
 
     def get_destination_data(self, station):
-        """Get the destination data"""
+        """Retrieve service details for a specific destination CRS."""
         data = self.get_data()
-        if data and check_key(data, "departures"):
-            destinations = data["departures"]["destination"]
-            if destinations:
-                if isinstance(destinations, dict):
-                    if destinations["@crs"] == station:
-                        service = destinations["service"]
-                        if check_key(service, "serviceType"):
-                            return service
-                else:
-                    for destination in destinations:
-                        if destination["@crs"] == station:
-                            service = destination["service"]
-                            if check_key(service, "serviceType"):
-                                return service
+        services = data.get("trainServices", [])
+        for service in services:
+            destinations = service.get("destination", [])
+            if isinstance(destinations, list):
+                for destination in destinations:
+                    if destination.get("crs") == station:
+                        return service
+            elif isinstance(destinations, dict):
+                if destinations.get("crs") == station:
+                    return service
+        _LOGGER.warning(f"No destination data found for station {station}.")
+        return {}
 
-    def get_service_details(self, crx):
-        """Get the destinations service details data"""
-        data = self.get_destination_data(crx)
-        if data:
-            cloned_data = data.copy()
-            del cloned_data["subsequentCallingPoints"]
-            return cloned_data
+    def get_service_details(self, crs):
+        """Retrieve service details without calling points."""
+        service = self.get_destination_data(crs)
+        if service:
+            service_copy = service.copy()
+            service_copy.pop("subsequentCallingPoints", None)
+            _LOGGER.debug("Removed subsequentCallingPoints from service details.")
+            return service_copy
+        _LOGGER.warning(f"No service details found for CRS {crs}.")
+        return {}
 
-    def get_calling_points(self, crx):
-        """Get the stations the service stops at on route to the destination"""
-        data = self.get_destination_data(crx)
-        if data:
-            callingPoints = data["subsequentCallingPoints"]["callingPointList"][
-                "callingPoint"
-            ]
-            return (
-                callingPoints
-                if type(callingPoints) in [list, tuple]
-                else [callingPoints]
-            )
+    def get_calling_points(self, station):
+        """Retrieve the calling points for a specific destination CRS."""
+        service = self.get_destination_data(station)
+        calling_points_group = service.get("subsequentCallingPoints", [])
+        if calling_points_group and isinstance(calling_points_group, list):
+            first_group = calling_points_group[0]
+            calling_points = first_group.get("callingPoint", [])
+            if isinstance(calling_points, list):
+                return calling_points
+        _LOGGER.warning(f"No calling points found for destination {station}.")
+        return []
 
     def get_station_name(self):
-        """Get the name of the station to watch for departures"""
+        """Retrieve the name of the station."""
         if not self._station_name:
             data = self.get_data()
-            if data:
-                name = data["locationName"]
-                if name:
-                    self._station_name = name
-
+            self._station_name = data.get("locationName", "Unknown Station")
         return self._station_name
 
-    def get_destination_name(self, crx):
-        """Get the name of the final destination station"""
-        data = self.get_destination_data(crx)
-        if data:
-            if check_key(data, "destination"):
-                return data["destination"]["location"]["locationName"]
+    def get_destination_name(self, crs):
+        """Retrieve the name of a destination station."""
+        service = self.get_destination_data(crs)
+        destinations = service.get("destination", [])
+        if isinstance(destinations, list):
+            return destinations[0].get("locationName", "Unknown Destination")
+        elif isinstance(destinations, dict):
+            return destinations.get("locationName", "Unknown Destination")
+        return "Unknown Destination"
 
     def message(self):
-        """Check for any station messages, such as cancelations, lack of service etc"""
+        """Retrieve station messages."""
         data = self.get_data()
-
-        def sub_message(message):
-            message = re.sub(
-                r"this station", self.get_station_name() + " station", message
-            )
-            message = re.sub(
-                r"more details.*", "", message, flags=re.IGNORECASE
-            ).strip()
-            return message
-
-        if check_key(data, "nrccMessages"):
-            messages = data["nrccMessages"]
-            if check_key(messages, "message"):
-                if isinstance(messages["message"], list):
-                    return [sub_message(i) for i in messages["message"]]
-                else:
-                    return [sub_message(messages["message"])]
+        messages = data.get("nrccMessages", {}).get("message", [])
+        if isinstance(messages, list):
+            return messages
+        elif isinstance(messages, str):
+            return [messages]
+        elif isinstance(messages, dict):
+            return [messages.get("#text", "Unknown Message")]
+        _LOGGER.warning("No valid station messages found.")
+        return []
 
     def get_last_update(self):
-        """Get the time the data was populated"""
+        """Retrieve the last update timestamp."""
         return self._last_update
 
-    def get_state(self, crx):
-        """Get the state of the data based on destination"""
-        data = self.get_service_details(crx)
-        if data:
-            return parser.parse(data["std"]).strftime("%H:%M")
+    def get_state(self, crs):
+        """Retrieve the state based on the service departure time."""
+        service = self.get_service_details(crs)
+        if service:
+            std = service.get("std")  # Scheduled departure time
+            if std:
+                return parser.parse(std).strftime("%H:%M")
         return "None"
