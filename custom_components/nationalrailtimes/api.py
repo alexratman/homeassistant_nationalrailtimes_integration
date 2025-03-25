@@ -1,72 +1,78 @@
-"""API wrapper for generating the XML envelope and fetching data from the Darwin API"""
+"""API wrapper for fetching data from the Darwin API"""
 
 import aiohttp
-import async_timeout
+import logging
 
+_LOGGER = logging.getLogger(__name__)
 
 class Api:
-    """API wrapper for generating the XML envelope and fetching data from the Darwin API"""
+    """API wrapper for interacting with the Darwin API"""
 
     def __init__(self, api_key, station, destination):
+        self.base_url = "https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120/GetDepBoardWithDetails/"
         self.api_key = api_key
-        self.time_offset = 0
-        self.time_window = 120
         self.station = station
         self.destination = destination
+        self.time_offset = 0
+        self.time_window = 120
 
     def set_config(self, key, val):
-        """Set config item, such as time_offset and time_window"""
+        """Set configuration values like time_offset and time_window."""
         if key == "time_offset":
             self.time_offset = val
             return True
-
         if key == "time_window":
             self.time_window = val
             return True
-
-    # def generate_filter_list(self):
-    #     """Generate XML Destination Filters"""
-    #     stations = self.filters
-    #     payload = ""
-
-    #     for station in stations:
-    #         if station is not None:
-    #             payload += f"<ldb:crs>{station}</ldb:crs>\n"
-
-    #     return payload
+        _LOGGER.warning(f"Unknown config key: {key}")
+        return False
 
     async def api_request(self):
         """
-        To minimise multiple API calls, check if a request from another entity in this component is already in progress.
-        If no request is running, generate SOAP Envelope and submit request to Darwin API.
-        Otherwise, wait until the existing one is complete, and return that value.
+        Make an API request to the Darwin API.
+
+        Returns:
+            dict: Parsed JSON data from the API response.
         """
-        url = f"https://api1.raildata.org.uk/1010-live-departure-board-dep/LDBWS/api/20220120/GetDepBoardWithDetails/{self.station}?numRows=5"
-        return await self.request(url)
+        url = f"{self.base_url}{self.station}"  # Construct the full URL
+        headers = {
+            "x-apikey": self.api_key,  # Include API key in headers
+        }
+        params = self.build_params()  # Build query parameters dynamically
 
-    async def fetch(self, session: aiohttp.ClientSession, url, params: dict):
-        """Fetch data from the Darwin API"""
         try:
-            with async_timeout.timeout(15):
-                async with session.get(
-                    url,
-                    headers={
-                        "Content-Type": "text/xml",
-                        "charset": "utf-8",
-                        "x-apikey": self.api_key,
-                    },
-                    params=params,
-                ) as response:
-                    result = await response.json()
-                    return result
-        except:
-            pass
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers, params=params) as response:
+                    if response.status == 200:
+                        # Parse JSON response
+                        json_data = await response.json()
+                        _LOGGER.info(f"Raw API response: {json_data}")
+                        return json_data
+                    else:
+                        _LOGGER.error(
+                            f"API request failed with status {response.status}: {await response.text()}"
+                        )
+                        return None
+        except aiohttp.ClientError as e:
+            _LOGGER.error(f"Client error during API request: {e}", exc_info=True)
+            return None
+        except Exception as e:
+            _LOGGER.error(f"Unexpected error during API request: {e}", exc_info=True)
+            return None
 
-    async def request(self, url):
-        """Prepare core request"""
-        data = {}
-        if self.destination != None:
-            data["filterCrs"] = self.destination
-            data["filterType"] = "to"
-        async with aiohttp.ClientSession() as session:
-            return await self.fetch(session, url, data)
+    def build_params(self):
+        """
+        Build API query parameters dynamically.
+
+        Returns:
+            dict: Parameters for the API request.
+        """
+        params = {
+            "numRows": 10,  # Number of rows to fetch
+            "timeOffset": self.time_offset,
+            "timeWindow": self.time_window,
+        }
+        if self.destination:
+            params["filterCrs"] = self.destination  # Destination CRS code
+            params["filterType"] = "to"  # Filter type
+        return params
