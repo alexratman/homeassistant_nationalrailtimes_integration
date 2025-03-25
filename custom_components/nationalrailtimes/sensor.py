@@ -5,6 +5,7 @@ from datetime import timedelta
 from dateutil import parser
 import logging
 import voluptuous as vol
+from .station_codes import STATIONS
 
 from homeassistant import config_entries, core
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
@@ -27,11 +28,8 @@ from .const import (
     CONF_REFRESH_SECONDS,
 )
 
-from .station_codes import STATIONS
-
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=CONF_REFRESH_SECONDS)
-
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -40,6 +38,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Required(CONF_ARRIVAL): cv.string,
         vol.Required(CONF_TIME_OFFSET): cv.string,
         vol.Required(CONF_TIME_WINDOW): cv.string,
+        vol.Optional(CONF_DESTINATIONS, default=[]): vol.All(cv.ensure_list, [cv.string]),
     }
 )
 
@@ -47,31 +46,29 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 async def async_setup_entry(
     hass: core.HomeAssistant,
     config_entry: config_entries.ConfigEntry,
-    async_add_entities,
+    async_add_entities: AddEntitiesCallback,
 ):
-    """Setup sensors from a config entry created in the integrations UI."""
+    """Set up sensors from a config entry created in the integrations UI."""
     config = hass.data[DOMAIN][config_entry.entry_id]
-    name = config[CONF_NAME] if CONF_NAME in config else DEFAULT_NAME
+    name = config.get(CONF_NAME, DEFAULT_NAME)
     station = config[CONF_ARRIVAL]
-    destinations = config[CONF_DESTINATIONS]
+    destinations = config.get(CONF_DESTINATIONS, [])
     api_key = config[CONF_API_KEY]
     time_offset = config[CONF_TIME_OFFSET]
     time_window = config[CONF_TIME_WINDOW]
 
-    sensors = []
-    if station is not None:
-        for destination in destinations:
-            if destination is not None:
-                sensors.append(
-                    NationalrailSensor(
-                        name,
-                        station,
-                        destination,
-                        api_key,
-                        time_offset,
-                        time_window,
-                    )
-                )
+    sensors = [
+        NationalrailSensor(
+            name,
+            station,
+            destination,
+            api_key,
+            time_offset,
+            time_window,
+        )
+        for destination in destinations
+        if destination
+    ]
     async_add_entities(sensors, update_before_add=True)
 
 
@@ -82,28 +79,25 @@ async def async_setup_platform(
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Set up the sensor platform."""
-    name = config.get(CONF_NAME)
-    station = config.get[CONF_ARRIVAL]
-    destinations = config.get(CONF_DESTINATIONS)
-    api_key = config.get(CONF_API_KEY)
-    time_offset = config.get(CONF_TIME_OFFSET)
-    time_window = config.get(CONF_TIME_WINDOW)
+    name = config.get(CONF_NAME, DEFAULT_NAME)
+    station = config[CONF_ARRIVAL]
+    destinations = config.get(CONF_DESTINATIONS, [])
+    api_key = config[CONF_API_KEY]
+    time_offset = config[CONF_TIME_OFFSET]
+    time_window = config[CONF_TIME_WINDOW]
 
-    sensors = []
-    if station is not None:
-        for destination in destinations:
-            if destination is not None:
-                sensors.append(
-                    NationalrailSensor(
-                        name,
-                        station,
-                        destination,
-                        api_key,
-                        time_offset,
-                        time_window,
-                    )
-                )
-
+    sensors = [
+        NationalrailSensor(
+            name,
+            station,
+            destination,
+            api_key,
+            time_offset,
+            time_window,
+        )
+        for destination in destinations
+        if destination
+    ]
     async_add_entities(sensors, update_before_add=True)
 
 
@@ -113,7 +107,7 @@ class NationalrailSensor(SensorEntity):
     def __init__(self, name, station, destination, api_key, time_offset, time_window):
         """Initialize the sensor."""
         self._platformname = name
-        self._name = station + "_" + destination + "_" + time_offset
+        self._name = f"{station}_{destination}_{time_offset}"
         self.time_offset = time_offset
         self.destination = destination
         self.station = station
@@ -125,18 +119,18 @@ class NationalrailSensor(SensorEntity):
         self.api.set_config(CONF_TIME_OFFSET, time_offset)
         self.api.set_config(CONF_TIME_WINDOW, time_window)
         self.last_data = {}
-        self.service_data = {}
+        self.service_data = []
 
     @property
     def unique_id(self):
+        """Return the unique ID of the sensor."""
         return self._name
 
     @property
     def name(self) -> str:
-        name = f"Trains {self.station_name} to {self.destination_name}"
-        if int(self.time_offset):
-            name = name + " (" + self.time_offset + "m walk)"
-        return name
+        """Return the display name of the sensor."""
+        walk_suffix = f" ({self.time_offset}m walk)" if int(self.time_offset) else ""
+        return f"Trains {self.station_name} to {self.destination_name}{walk_suffix}"
 
     @property
     def icon(self):
@@ -149,68 +143,141 @@ class NationalrailSensor(SensorEntity):
         return self._state
 
     async def async_update(self):
-        """Fetch new state data for the sensor.
-        This is the only method that should fetch new data for Home Assistant.
-        """
-
+        """Fetch new state data for the sensor."""
         try:
             result = await self.api.api_request()
-            if not result:
-                _LOGGER.warning("There was no reply from the National Rail servers")
-                self._state = (
-                    "There was no reply from National Rail Trains for this service"
-                )
+            _LOGGER.debug("Received result: %s", result)
+        
+            # Ensure the result is a dictionary
+            if not isinstance(result, dict):
+                _LOGGER.error("Unexpected result type. Expected dict, got %s", type(result))
+                self._state = "Error: Invalid API response"
                 return
-        except OSError:
-            _LOGGER.warning("Something broke")
-            self._state = "There was an internal error for this service"
-            return
-        except Exception:
-            _LOGGER.warning("Failed to interpret received %s", "XML", exc_info=1)
-            self._state = "Cannot interpret XML for this service from National Rail"
-            return
-
-        self.station_name = result["locationName"]
-        self.destination_name = result["filterLocationName"]
-        self.service_data = result.get("trainServices")[0]
-
-        next_train_time = (
-            self.service_data["etd"]
-            if self.service_data.get("etd", "On Time") != "On time"
-            else self.service_data["std"]
-        )
-
-        self._state = parser.parse(next_train_time).strftime("%H:%M")
-        self.last_data = result
+        
+            # Assign and validate key data
+            self.station_name = result.get("locationName", "Unknown")
+            self.destination_name = result.get("filterLocationName", "Unknown")
+            self.service_data = result.get("trainServices", [])
+        
+            # Validate `service_data` is a list
+            if not isinstance(self.service_data, list):
+                _LOGGER.error("Unexpected type for trainServices. Expected list, got %s", type(self.service_data))
+                self.service_data = []
+                self._state = "Error: Invalid train service data"
+                return
+        
+            # Ensure the list is not empty
+            if not self.service_data:
+                _LOGGER.warning("No train services found in result: %s", result)
+                self._state = "No train services available for this station"
+                return
+        
+            # Validate the first element in `service_data` is a dictionary
+            first_service = self.service_data[0]
+            if not isinstance(first_service, dict):
+                _LOGGER.error("Expected dictionary in service_data[0], got %s", type(first_service))
+                self._state = "Invalid train service data format"
+                return
+        
+            # Safely get the next train time
+            next_train_time = first_service.get("etd", "").lower()
+            if next_train_time in ["delayed", "cancelled"]:  # Handle non-time values
+                _LOGGER.warning("Non-time value for next train time: %s", next_train_time)
+                self._state = next_train_time.capitalize()  # Display "Delayed" or "Cancelled"
+            elif next_train_time == "on time":
+                # Fall back to std if etd is "On time"
+                next_train_time = first_service.get("std", "Unknown")
+                self._state = parser.parse(next_train_time).strftime("%H:%M")
+            else:
+                # Ensure valid time string before parsing
+                try:
+                    self._state = parser.parse(next_train_time).strftime("%H:%M")
+                except Exception as parse_error:
+                    _LOGGER.error("Failed to parse next train time: %s", parse_error)
+                    self._state = "Invalid time"
+        
+            self.last_data = result
+        
+        except Exception as e:
+            _LOGGER.error("Failed to fetch or parse API data: %s", e, exc_info=True)
+            self._state = "Error fetching or parsing API data"
 
     @property
     def extra_state_attributes(self):
-        data = self.last_data
-        service_data = self.service_data
-        service_dict = service_data.copy()
-        service_dict.pop("subsequentCallingPoints")
+        """Return additional sensor attributes."""
         attributes = {}
-        attributes["last_refresh"] = data.get("generatedAt", "")
-
-        if len(data) == 0:
-            return attributes
-
-        attributes["message"] = data.get("nrccMessages", "")
-        attributes["station_name"] = data["locationName"]
-        attributes["destination_name"] = data["filterLocationName"]
-        attributes["service"] = service_dict
-        attributes["services"] = data["trainServices"][1:]
-        attributes["calling_points"] = [
-            callpoint.get("locationName", "")
-            for callpoint in service_data.get("subsequentCallingPoints", [{}])[0].get(
-                "callingPoint", []
-            )
-        ]
-        attributes["offset"] = self.time_offset
-
+    
+        # Basic Attributes
+        attributes["last_refresh"] = self.last_data.get("generatedAt", "Unknown")
+        attributes["station_name"] = self.last_data.get("locationName", "Unknown")
+        attributes["destination_name"] = self.last_data.get("filterLocationName", "Unknown")
+        attributes["offset"] = str(self.time_offset)  # Walking time offset
         attributes["station_code"] = self.station
-        if self.destination in STATIONS:
-            attributes["target_station_name"] = STATIONS[self.destination]
-            attributes["target_station_code"] = self.destination
-
+        attributes["target_station_code"] = self.destination
+        attributes["target_station_name"] = STATIONS.get(self.destination, "Unknown")
+    
+        # Primary Service (First Train)
+        if isinstance(self.service_data, list) and len(self.service_data) > 0:
+            first_service = self.service_data[0]
+            attributes["service"] = {
+                "std": first_service.get("std", "Unknown"),
+                "etd": first_service.get("etd", "Unknown"),
+                "platform": first_service.get("platform", "Unknown"),
+                "operator": first_service.get("operator", "Unknown"),
+                "destination": {
+                    "location": {
+                        "via": first_service.get("destinationVia", ""),
+                    },
+                },
+                "calling_points": [
+                    {
+                        "locationName": point.get("locationName", "Unknown"),
+                        "st": point.get("st", point.get("time", "Unknown")),  # Scheduled time
+                        "et": point.get("et", "Unknown"),  # Estimated time
+                    }
+                    for point in first_service.get("subsequentCallingPoints", [{}])[0].get(
+                        "callingPoint", []
+                    )
+                ],
+            }
+        else:
+            attributes["service"] = {}
+    
+        # All Services List
+        attributes["services"] = [
+            {
+                "std": service.get("std", "Unknown"),
+                "etd": service.get("etd", "Unknown"),
+                "platform": service.get("platform", "Unknown"),
+                "operator": service.get("operator", "Unknown"),
+                "destination": {
+                    "location": {
+                        "via": service.get("destinationVia", ""),
+                    },
+                },
+                "calling_points": [
+                    {
+                        "locationName": point.get("locationName", "Unknown"),
+                        "st": point.get("st", point.get("time", "Unknown")),  # Scheduled time
+                        "et": point.get("et", "Unknown"),  # Estimated time
+                    }
+                    for point in service.get("subsequentCallingPoints", [{}])[0].get(
+                        "callingPoint", []
+                    )
+                ],
+            }
+            for service in self.service_data
+        ]
+    
+        # Flattened Calling Points
+        attributes["calling_points"] = [
+            {
+                "locationName": point.get("locationName", "Unknown"),
+                "st": point.get("st", "Unknown"),
+                "et": point.get("et", "Unknown"),
+            }
+            for point in attributes["service"].get("calling_points", [])
+        ]
+    
+        _LOGGER.debug("Final attributes prepared for sensor: %s", attributes)
         return attributes
