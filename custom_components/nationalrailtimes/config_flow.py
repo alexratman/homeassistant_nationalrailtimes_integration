@@ -22,6 +22,8 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required("api_key"): str,
         vol.Required("arrival"): str,
         vol.Required("time_offset", default=str(DEFAULT_TIME_OFFSET)): str,
+        vol.Optional("service_start_hour", default=5): vol.Coerce(int),
+        vol.Optional("service_end_hour", default=23): vol.Coerce(int),
     }
 )
 
@@ -58,6 +60,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.data_config["arrival"] = user_input["arrival"]
             self.data_config["time_offset"] = user_input["time_offset"]
             self.data_config["time_window"] = str(DEFAULT_TIME_WINDOW)
+            self.data_config["service_start_hour"] = user_input["service_start_hour"]
+            self.data_config["service_end_hour"] = user_input["service_end_hour"]
         except Exception:  # pylint: disable=broad-except
             _LOGGER.exception("Unexpected exception")
             errors["base"] = "unknown"
@@ -89,6 +93,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_destination()
 
         return self.async_create_entry(
-            title=f"National Rail Departure Times - {self.data_config["arrival"]}",
+            title=f"National Rail Departure Times - {self.data_config['arrival']}",
             data=self.data_config,
         )
