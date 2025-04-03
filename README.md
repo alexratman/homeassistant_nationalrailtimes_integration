@@ -13,7 +13,7 @@
 ![downloads][downloads-badge]
 
 A custom Home Assistant component to show next available trains to specific stops through the National Rail Darwin JSON API, this was mainly done as the RDG(Rail Delivery Group) replaced the old national rail enquiries api signup with a new "marketplace" and replaced the old SOAP api with a new JSON api(that is poorly documented).
-For better visuals, to be used with the Home Assistant custom card homeassistant_nationalrailtimes_lovelace (https://github.com/crismc/homeassistant_nationalrailtimes_lovelace)
+For better visuals, to be used with the Home Assistant custom card homeassistant_nationalrailtimes_lovelace which was updated by dabc24 ([https://github.com/dabc24/homeassistant_nationalrailtimes_lovelace](https://github.com/dabc24/homeassistant_nationalrailtimes_lovelace))
 
 Creates a sensor for each station/destination, reporting arrival/destination times, and relevant calling stops along the way coupled with any station messages such as delayed or cancelled services.
 
