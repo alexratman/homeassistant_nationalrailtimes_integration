@@ -42,7 +42,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
-
 async def async_setup_entry(
     hass: core.HomeAssistant,
     config_entry: config_entries.ConfigEntry,
@@ -56,7 +55,9 @@ async def async_setup_entry(
     api_key = config[CONF_API_KEY]
     time_offset = config[CONF_TIME_OFFSET]
     time_window = config[CONF_TIME_WINDOW]
-
+    # Fetch service hours (default to 5 and 23 if not set)
+    service_start_hour = config.get("service_start_hour", 5)
+    service_end_hour = config.get("service_end_hour", 23)
     sensors = [
         NationalrailSensor(
             name,
@@ -65,12 +66,13 @@ async def async_setup_entry(
             api_key,
             time_offset,
             time_window,
+            service_start_hour,
+            service_end_hour,
         )
         for destination in destinations
         if destination
     ]
     async_add_entities(sensors, update_before_add=True)
-
 
 async def async_setup_platform(
     hass: HomeAssistant,
@@ -85,7 +87,6 @@ async def async_setup_platform(
     api_key = config[CONF_API_KEY]
     time_offset = config[CONF_TIME_OFFSET]
     time_window = config[CONF_TIME_WINDOW]
-
     sensors = [
         NationalrailSensor(
             name,
@@ -100,11 +101,10 @@ async def async_setup_platform(
     ]
     async_add_entities(sensors, update_before_add=True)
 
-
 class NationalrailSensor(SensorEntity):
-    """Representation of a Sensor."""
-
-    def __init__(self, name, station, destination, api_key, time_offset, time_window):
+    def __init__(
+        self, name, station, destination, api_key, time_offset, time_window, service_start_hour=5, service_end_hour=23
+    ):
         """Initialize the sensor."""
         self._platformname = name
         self._name = f"{station}_{destination}_{time_offset}"
@@ -114,8 +114,8 @@ class NationalrailSensor(SensorEntity):
         self._state = None
         self.station_name = station
         self.destination_name = destination
-
-        self.api = Api(api_key, station, destination)
+        # Pass service hours to the API instance
+        self.api = Api(api_key, station, destination, service_start_hour, service_end_hour)
         self.api.set_config(CONF_TIME_OFFSET, time_offset)
         self.api.set_config(CONF_TIME_WINDOW, time_window)
         self.last_data = {}
@@ -142,62 +142,62 @@ class NationalrailSensor(SensorEntity):
         """Return the state of the sensor."""
         return self._state
 
+    def parse_train_time(self, first_service):
+        """Parse the next train time from the service data."""
+        next_train_time = first_service.get("etd", "").lower()
+        if next_train_time in ["delayed", "cancelled"]:
+            _LOGGER.warning("Non-time value for next train time: %s", next_train_time)
+            return next_train_time.capitalize()
+
+        if next_train_time == "on time":
+            # Use std if etd is "On time"
+            next_train_time = first_service.get("std", "Unknown")
+        try:
+            return parser.parse(next_train_time).strftime("%H:%M")
+        except Exception as parse_error:
+            _LOGGER.error("Failed to parse train time: %s", parse_error)
+            return "Invalid time"
+
     async def async_update(self):
         """Fetch new state data for the sensor."""
+        if not self.api.is_service_available():
+            self._state = "No train services expected"
+            if not hasattr(self, "_logged_unavailable"):
+                _LOGGER.info(f"No train services expected for {self.station} to {self.destination} at this time.")
+                self._logged_unavailable = True
+            return
+
+        if self.api.is_service_available() and hasattr(self, "_logged_unavailable"):
+            del self._logged_unavailable
+
         try:
             result = await self.api.api_request()
-            _LOGGER.debug("Received result: %s", result)
-        
-            # Ensure the result is a dictionary
             if not isinstance(result, dict):
-                _LOGGER.error("Unexpected result type. Expected dict, got %s", type(result))
+                _LOGGER.error("Invalid API response. Expected a dictionary but received: %s", type(result))
                 self._state = "Error: Invalid API response"
                 return
-        
-            # Assign and validate key data
+
             self.station_name = result.get("locationName", "Unknown")
             self.destination_name = result.get("filterLocationName", "Unknown")
             self.service_data = result.get("trainServices", [])
-        
-            # Validate `service_data` is a list
+
             if not isinstance(self.service_data, list):
                 _LOGGER.error("Unexpected type for trainServices. Expected list, got %s", type(self.service_data))
                 self.service_data = []
                 self._state = "Error: Invalid train service data"
                 return
-        
-            # Ensure the list is not empty
+
             if not self.service_data:
-                _LOGGER.warning("No train services found in result: %s", result)
+                _LOGGER.warning("No train services found for %s to %s: %s", self.station, self.destination, result)
                 self._state = "No train services available for this station"
+                self.last_data = result  # Store for reference
+                self.service_data = []  # Clear data
                 return
-        
-            # Validate the first element in `service_data` is a dictionary
+
             first_service = self.service_data[0]
-            if not isinstance(first_service, dict):
-                _LOGGER.error("Expected dictionary in service_data[0], got %s", type(first_service))
-                self._state = "Invalid train service data format"
-                return
-        
-            # Safely get the next train time
-            next_train_time = first_service.get("etd", "").lower()
-            if next_train_time in ["delayed", "cancelled"]:  # Handle non-time values
-                _LOGGER.warning("Non-time value for next train time: %s", next_train_time)
-                self._state = next_train_time.capitalize()  # Display "Delayed" or "Cancelled"
-            elif next_train_time == "on time":
-                # Fall back to std if etd is "On time"
-                next_train_time = first_service.get("std", "Unknown")
-                self._state = parser.parse(next_train_time).strftime("%H:%M")
-            else:
-                # Ensure valid time string before parsing
-                try:
-                    self._state = parser.parse(next_train_time).strftime("%H:%M")
-                except Exception as parse_error:
-                    _LOGGER.error("Failed to parse next train time: %s", parse_error)
-                    self._state = "Invalid time"
-        
+            self._state = self.parse_train_time(first_service)  # Use helper for time parsing
             self.last_data = result
-        
+
         except Exception as e:
             _LOGGER.error("Failed to fetch or parse API data: %s", e, exc_info=True)
             self._state = "Error fetching or parsing API data"
